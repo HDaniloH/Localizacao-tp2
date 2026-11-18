@@ -9,4 +9,5 @@ pytest>=8.0.0
 pytest-cov>=5.0.0
 flake8>=7.0.0
 black>=24.0.0
-bandit>=1.7.0
+bandit>=1.7.0sphinx>=7.0.0
+sphinx-rtd-theme>=2.0.0
