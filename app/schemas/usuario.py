@@ -1,6 +1,5 @@
 """Schemas Pydantic de usuário e autenticação."""
 
-from datetime import datetime
 from typing import Annotated
 
 from pydantic import (
@@ -10,6 +9,8 @@ from pydantic import (
     EmailStr,
     Field,
 )
+
+from app.schemas.comum import DataHoraUTC
 
 
 def validar_forca_senha(senha: str) -> str:
@@ -85,7 +86,7 @@ class UsuarioPublico(BaseModel):
     email: EmailStr
     is_admin: bool
     ativo: bool
-    criado_em: datetime
+    criado_em: DataHoraUTC
 
 
 class Token(BaseModel):
