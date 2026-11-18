@@ -1,4 +1,4 @@
-# Guia da API — Autenticação
+# Guia da API — Autenticação e Painel Admin (US05)
 
 Backend em FastAPI sobre o PostgreSQL/PostGIS do projeto (`app/database.py`,
 `app/models.py`). A documentação interativa (Swagger) fica em `/docs`.
@@ -56,16 +56,29 @@ pytest --cov=app --cov-report=term-missing --cov-fail-under=80
 | PATCH | `/usuarios/{id}` | o próprio ou admin | Altera; `is_admin`/`ativo` só admin |
 | DELETE | `/usuarios/{id}` | admin | **Inativa** (exclusão lógica) |
 
+### Categorias — US05
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| GET | `/admin/categorias?ativa=` | admin | Lista todas |
+| POST | `/admin/categorias` | admin | Cadastra |
+| GET | `/admin/categorias/{id}` | admin | Consulta (inclusive inativa) |
+| PATCH | `/admin/categorias/{id}` | admin | Altera nome/descrição |
+| PATCH | `/admin/categorias/{id}/inativar` | admin | Inativa |
+| PATCH | `/admin/categorias/{id}/reativar` | admin | Reativa |
+| GET | `/categorias` | público | Só ativas (formulário da US01, filtros da US02) |
+| GET | `/categorias/{id}` | público | Só se ativa |
+
 ## Decisões de projeto
 
 - **Administrador:** é o campo `is_admin` do modelo `Usuario`. O cadastro
   público nunca cria admin; o primeiro vem do comando `criar_admin`.
 - **Exclusão lógica:** nada é apagado. Usuários têm a coluna `ativo`
-  (acrescentada ao modelo), para que ocorrências antigas continuem apontando
-  para registros válidos.
+  (acrescentada ao modelo) e categorias a coluna `ativa`, para que ocorrências
+  antigas continuem apontando para registros válidos.
 - **Senha:** bcrypt; de 8 a 72 caracteres, com letra e número.
 - **Login:** a mesma mensagem para e-mail inexistente e senha errada, com tempo
   de resposta parecido, para não revelar quais e-mails estão cadastrados.
+- **Nome de categoria único** sem diferenciar maiúsculas, contando as inativas.
 - **Admin não pode remover o próprio acesso** (`is_admin` ou `ativo`), para o
   sistema não ficar sem administrador.
 - **Datas em UTC**, com `Z` no final.
@@ -86,11 +99,13 @@ def apagar(id: int, db: DbSession, _admin: AdminAtual): ...
 ```
 
 Fixtures em `tests/conftest.py`: `client`, `db_session`, `cidadao`, `admin`,
-`headers_cidadao`, `headers_admin`, `criar_usuario(...)` e a função
-`headers_de(usuario)`.
+`headers_cidadao`, `headers_admin`, `criar_usuario(...)`, `criar_categoria(...)`
+e a função `headers_de(usuario)`.
 
 ## Pendências
 
+- **Perímetros geográficos (US05):** o modelo `PerimetroAutorizado` já existe;
+  faltam as rotas para o admin cadastrá-los.
 - **mypy:** o `app/models.py` usa o estilo `Column(...)`, e o mypy acusa
   incompatibilidade de tipos nos serviços. Migrar os modelos para o estilo
   `Mapped[...]` do SQLAlchemy 2.0 resolve.
@@ -98,8 +113,9 @@ Fixtures em `tests/conftest.py`: `client`, `db_session`, `cidadao`, `admin`,
 ## Histórico de commits (TDD)
 
 Cada funcionalidade tem um commit de teste falhando (`[RED]`) seguido do
-commit que o faz passar (`[GREEN]`):
+commit que o faz passar (`[GREEN]`).
 
+**`feature/autenticacao`**
 1. `chore`: dependências da autenticação e correção do `requirements.txt`
 2. Teste 1 — hash bcrypt e JWT
 3. Teste 2 — cadastro, login e `/auth/me`
@@ -107,3 +123,7 @@ commit que o faz passar (`[GREEN]`):
 5. Teste 4 — comando `criar_admin`
 6. Teste 5 — datas em UTC
 7. `docs`: este guia
+
+**`feature/us05-categorias`** (criada a partir da anterior)
+1. Teste 6 — US05 categorias
+2. `docs`: guia com a US05
