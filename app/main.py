@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app import models  # noqa: F401  (registra as tabelas no metadata)
-from app.api.routes import auth
+from app.api.routes import auth, usuarios
 from app.core.exceptions import ErroDominio
 from app.database import Base, engine
 
@@ -52,3 +52,4 @@ def health_check() -> dict[str, str]:
 
 
 app.include_router(auth.router)
+app.include_router(usuarios.router)
