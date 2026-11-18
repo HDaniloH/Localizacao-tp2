@@ -1,12 +1,33 @@
 """Ponto de entrada da API RESTful do Sistema de Ocorrências Urbanas."""
 
-from fastapi import FastAPI
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app import models  # noqa: F401  (registra as tabelas no metadata)
+from app.api.routes import auth
+from app.core.exceptions import ErroDominio
+from app.database import Base, engine
+
+
+@asynccontextmanager
+async def ciclo_de_vida(_app: FastAPI) -> AsyncIterator[None]:
+    """Cria as tabelas que faltarem ao subir a aplicação.
+
+    Provisório: quando o grupo adotar migrações (ex.: Alembic), remover.
+    """
+    Base.metadata.create_all(bind=engine)
+    yield
+
 
 app = FastAPI(
     title="API - Sistema de Registro e Acompanhamento de Ocorrências Urbanas",
     description="Backend georreferenciado desenvolvido para TP2 - UnB.",
     version="0.1.0",
+    lifespan=ciclo_de_vida,
 )
 
 app.add_middleware(
@@ -18,7 +39,16 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(ErroDominio)
+async def tratar_erro_dominio(_req: Request, exc: ErroDominio) -> JSONResponse:
+    """Converte exceções de domínio em respostas HTTP."""
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detalhe})
+
+
 @app.get("/health", tags=["Infraestrutura"])
 def health_check() -> dict[str, str]:
     """Verifica se a API está online e operacional."""
     return {"status": "ok", "service": "ocorrencias-urbanas-api"}
+
+
+app.include_router(auth.router)

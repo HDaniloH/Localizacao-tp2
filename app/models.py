@@ -36,6 +36,9 @@ class Usuario(Base):
     email = Column(String(150), unique=True, index=True, nullable=False)
     senha_hash = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
+    # Exclusão lógica: um usuário inativo não faz login, mas suas
+    # ocorrências continuam apontando para ele.
+    ativo = Column(Boolean, default=True, nullable=False)
     criado_em = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
