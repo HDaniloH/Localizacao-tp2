@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session  # noqa: E402
 from app.core.security import criar_token_acesso, gerar_hash_senha  # noqa: E402
 from app.database import Base, SessionLocal, engine, get_db  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Usuario  # noqa: E402
+from app.models import Categoria, Usuario  # noqa: E402
 
 SENHA_PADRAO = "Senha123"
 
@@ -69,6 +69,22 @@ def criar_usuario(db_session: Session) -> Callable[..., Usuario]:
         db_session.commit()
         db_session.refresh(usuario)
         return usuario
+
+    return _criar
+
+
+@pytest.fixture
+def criar_categoria(db_session: Session) -> Callable[..., Categoria]:
+    """Fábrica de categorias gravadas direto no banco."""
+
+    def _criar(
+        nome: str, descricao: str | None = None, ativa: bool = True
+    ) -> Categoria:
+        categoria = Categoria(nome=nome, descricao=descricao, ativa=ativa)
+        db_session.add(categoria)
+        db_session.commit()
+        db_session.refresh(categoria)
+        return categoria
 
     return _criar
 
