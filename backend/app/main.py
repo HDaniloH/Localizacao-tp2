@@ -12,6 +12,8 @@ from app.api.routes import auth, categorias, usuarios
 from app.core.exceptions import ErroDominio
 from app.database import Base, engine
 
+from app.ocorrencias.rotas import router as ocorrencias_router
+
 
 @asynccontextmanager
 async def ciclo_de_vida(_app: FastAPI) -> AsyncIterator[None]:
@@ -55,3 +57,4 @@ app.include_router(auth.router)
 app.include_router(usuarios.router)
 app.include_router(categorias.router_admin)
 app.include_router(categorias.router_publico)
+app.include_router(ocorrencias_router)

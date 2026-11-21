@@ -49,7 +49,7 @@ def test_registrar_201(cliente, corpo):
 def test_sem_autenticacao_401(app_teste, corpo):
     r = TestClient(app_teste).post("/ocorrencias", json=corpo)
     assert r.status_code == 401
-    assert r.json()["detail"]["codigo"] == "nao_autenticado"
+    assert r.json()["detail"] == "Not authenticated"
 
 
 def test_campo_invalido_422(cliente, corpo):
@@ -130,5 +130,7 @@ def test_detalhe_inexistente_404(cliente):
     assert r.json()["detail"]["codigo"] == "ocorrencia_nao_encontrada"
 
 
-def test_usuario_padrao_e_anonimo():
-    assert usuario_atual_id() is None
+def test_usuario_atual_id_retorna_id_do_usuario():
+    from types import SimpleNamespace
+
+    assert usuario_atual_id(SimpleNamespace(id=42)) == 42

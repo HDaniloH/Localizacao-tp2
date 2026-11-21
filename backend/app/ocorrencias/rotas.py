@@ -26,17 +26,14 @@ from app.ocorrencias.repositorio_sql import (
 from app.ocorrencias.schemas import DetalheOcorrencia, OcorrenciaEntrada, ResumoMapa
 from app.ocorrencias.servico import ServicoOcorrencias
 
+from app.api.deps import UsuarioAtual
+
 router = APIRouter(prefix="/ocorrencias", tags=["Ocorrências"])
 
 
-def usuario_atual_id() -> Optional[int]:
-    """Identifica o usuário autenticado.
-
-    Provisório: a autenticação ainda não está na SubMain, então ninguém está
-    autenticado e o cadastro responde 401. Quando o módulo de autenticação
-    entrar, esta função passa a delegar a ele.
-    """
-    return None
+def usuario_atual_id(usuario: UsuarioAtual) -> int:
+    """Identifica o usuário autenticado a partir do token JWT."""
+    return usuario.id
 
 
 def obter_servico(db: Annotated[Session, Depends(get_db)]) -> ServicoOcorrencias:

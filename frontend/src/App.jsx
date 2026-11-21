@@ -7,6 +7,7 @@ import { Cadastro } from './pages/Cadastro';
 import { CategoriasAdmin } from './pages/CategoriasAdmin';
 import { UsuariosAdmin } from './pages/UsuariosAdmin';
 import { Perfil } from './pages/Perfil';
+import { MapaOcorrencias } from './pages/MapaOcorrencias';
 
 function App() {
   return (
@@ -14,14 +15,14 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Layout />}>
-            <Route index element={<h1 className="text-xl">Bem-vindo ao UrbanReport (Em construção)</h1>} />
+            <Route index element={<MapaOcorrencias />} />
             <Route path="login" element={<Login />} />
             <Route path="cadastro" element={<Cadastro />} />
-            <Route element={<RotaProtegida />}>
-            <Route path="perfil" element={<Perfil />} />
-          </Route>
 
-         
+            <Route element={<RotaProtegida />}>
+              <Route path="perfil" element={<Perfil />} />
+            </Route>
+
             <Route element={<RotaProtegida apenasAdmin />}>
               <Route path="admin/categorias" element={<CategoriasAdmin />} />
               <Route path="admin/usuarios" element={<UsuariosAdmin />} />
