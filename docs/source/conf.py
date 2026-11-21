@@ -3,7 +3,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath("../.."))
+sys.path.insert(0, os.path.abspath("../../backend"))
 
 project = "Sistema de Ocorrências Urbanas - TP2"
 copyright = "2026, Grupo TP2 - UnB"
