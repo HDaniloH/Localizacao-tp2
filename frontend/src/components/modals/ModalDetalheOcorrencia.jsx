@@ -4,6 +4,15 @@ import { ModalBase } from './ModalBase';
 import { ocorrenciasService } from '../../services/api';
 import { STATUS_CONFIG, formatarDataHora } from '../../utils/ocorrencias';
 
+/**
+ * Modal de visualização dos detalhes completos de uma ocorrência selecionada (US02).
+ *
+ * @param {Object} props - Propriedades do componente.
+ * @param {boolean} props.isOpen - Controla a visibilidade do modal.
+ * @param {Function} props.onClose - Callback executado ao fechar o modal.
+ * @param {Object|null} props.ocorrencia - Dados detalhados da ocorrência consultada.
+ * @returns {JSX.Element|null} Modal com metadados, status e coordenadas da ocorrência.
+ */
 export function ModalDetalheOcorrencia({ isOpen, onClose, ocorrenciaId, mapaCategorias }) {
   const [detalhe, setDetalhe] = useState(null);
   const [carregando, setCarregando] = useState(false);

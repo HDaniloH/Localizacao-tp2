@@ -2,6 +2,20 @@ import { useState, useEffect } from 'react';
 import { Crosshair, MapPin } from 'lucide-react';
 import { ModalBase } from './ModalBase';
 
+/**
+ * Modal de formulário para registro de uma nova ocorrência georreferenciada (US01).
+ * Suporta captura automática de coordenadas via API de Geolocalização do navegador
+ * ou seleção manual de ponto diretamente no mapa.
+ *
+ * @param {Object} props - Propriedades do componente.
+ * @param {boolean} props.isOpen - Controla a visibilidade do modal.
+ * @param {Function} props.onClose - Callback executado ao fechar o modal.
+ * @param {Array<Object>} props.categorias - Lista de categorias ativas disponíveis.
+ * @param {{lat: number, lng: number}|null} props.coordenadasIniciais - Coordenadas pré-selecionadas no mapa.
+ * @param {Function} props.onEscolherNoMapa - Ativa o modo de seleção de ponto no mapa.
+ * @param {Function} props.onRegistrar - Submete os dados da nova ocorrência para a API.
+ * @returns {JSX.Element|null} Formulário modal de registro de ocorrência.
+ */
 export function ModalRegistrarOcorrencia({
   isOpen,
   onClose,

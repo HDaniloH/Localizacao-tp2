@@ -68,6 +68,14 @@ pytest --cov=app --cov-report=term-missing --cov-fail-under=80
 | GET | `/categorias` | público | Só ativas (formulário da US01, filtros da US02) |
 | GET | `/categorias/{id}` | público | Só se ativa |
 
+
+### Ocorrências – US01 e US02 (`/ocorrencias`)
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| POST | `/ocorrencias` | logado | Registra ocorrência georreferenciada (US01) |
+| GET | `/ocorrencias` | público | Lista marcadores do mapa com filtros por categoria, status, datas e bounding box (`sul`, `oeste`, `norte`, `leste`) (US02) |
+| GET | `/ocorrencias/{ocorrencia_id}` | público | Consulta os detalhes completos de uma ocorrência (US02) |
+
 ## Decisões de projeto
 
 - **Administrador:** é o campo `is_admin` do modelo `Usuario`. O cadastro
