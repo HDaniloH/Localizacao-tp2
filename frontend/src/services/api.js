@@ -1,3 +1,8 @@
+/**
+ * Camada de comunicação HTTP com a API RESTful do backend FastAPI.
+ * Encapsula chamadas de autenticação, usuários, categorias e ocorrências georreferenciadas.
+ * @module services/api
+ */
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function getToken() {
@@ -7,6 +12,9 @@ function getToken() {
 function extrairMensagemErro(data, fallback) {
   if (!data) return fallback;
   if (typeof data.detail === 'string') return data.detail;
+  if (data.detail && typeof data.detail.mensagem === 'string') {
+    return data.detail.mensagem;
+  }
   if (Array.isArray(data.detail) && data.detail.length > 0) {
     return data.detail.map((err) => err.msg).join(' | ');
   }
@@ -136,5 +144,55 @@ export const usuariosService = {
     return request(`/usuarios/${id}`, {
       method: 'DELETE',
     });
+  },
+};
+
+export const ocorrenciasService = {
+  registrar({ titulo, categoria_id, descricao, latitude, longitude }) {
+    return request('/ocorrencias', {
+      method: 'POST',
+      body: JSON.stringify({
+        titulo,
+        categoria_id: Number(categoria_id),
+        descricao,
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+      }),
+    });
+  },
+
+  listar(filtros = {}) {
+    const params = new URLSearchParams();
+
+    if (Array.isArray(filtros.categorias)) {
+      filtros.categorias.forEach((id) => params.append('categorias', String(id)));
+    }
+    if (Array.isArray(filtros.status)) {
+      filtros.status.forEach((st) => params.append('status', st));
+    }
+    if (filtros.inicio) params.append('inicio', filtros.inicio);
+    if (filtros.fim) params.append('fim', filtros.fim);
+
+    if (
+      filtros.sul !== undefined &&
+      filtros.oeste !== undefined &&
+      filtros.norte !== undefined &&
+      filtros.leste !== undefined
+    ) {
+      params.append('sul', String(filtros.sul));
+      params.append('oeste', String(filtros.oeste));
+      params.append('norte', String(filtros.norte));
+      params.append('leste', String(filtros.leste));
+    }
+
+    if (filtros.limite !== undefined) params.append('limite', String(filtros.limite));
+    if (filtros.offset !== undefined) params.append('offset', String(filtros.offset));
+
+    const query = params.toString();
+    return request(`/ocorrencias${query ? `?${query}` : ''}`);
+  },
+
+  detalhar(id) {
+    return request(`/ocorrencias/${id}`);
   },
 };

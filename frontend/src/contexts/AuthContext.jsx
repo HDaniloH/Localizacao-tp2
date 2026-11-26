@@ -3,6 +3,14 @@ import { authService } from '../services/api';
 
 const AuthContext = createContext(null);
 
+/**
+ * Provedor de contexto global de autenticação JWT da aplicação.
+ * Gerencia o armazenamento do token, dados do usuário logado e ações de login/logout.
+ *
+ * @param {Object} props - Propriedades do provedor.
+ * @param {React.ReactNode} props.children - Componentes filhos envolvidos pelo contexto.
+ * @returns {JSX.Element} Provedor AuthContext.
+ */
 export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(null);
   const [carregando, setCarregando] = useState(true);
