@@ -1,5 +1,9 @@
 import L from 'leaflet';
 
+/**
+ * Utilitários de formatação visual, ícones de marcadores Leaflet e mapeamento de status de ocorrências.
+ * @module utils/ocorrencias
+ */
 export const STATUS_CONFIG = {
   REGISTRADO: {
     label: 'Registrado',

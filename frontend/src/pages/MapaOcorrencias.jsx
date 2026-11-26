@@ -36,6 +36,13 @@ function EventosMapa({ modoSelecao, filtrarPorArea, onSelecionarPonto, onMoverMa
   return null;
 }
 
+/**
+ * Página principal com o mapa interativo de ocorrências urbanas (US01 e US02).
+ * Permite filtrar ocorrências por categoria, status e área visível (bounding box),
+ * visualizar detalhes e acionar o registro de novas ocorrências via GPS ou clique no mapa.
+ *
+ * @returns {JSX.Element} Interface completa do mapa interativo e barra de filtros.
+ */
 export function MapaOcorrencias() {
   const { autenticado } = useAuth();
 

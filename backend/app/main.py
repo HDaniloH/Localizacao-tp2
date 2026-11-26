@@ -7,12 +7,60 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app import models  # noqa: F401  (registra as tabelas no metadata)
+from app import models  # noqa: F401 (registra as tabelas no metadata)
 from app.api.routes import auth, categorias, usuarios
 from app.core.exceptions import ErroDominio
 from app.database import Base, engine
-
 from app.ocorrencias.rotas import router as ocorrencias_router
+
+TAGS_METADATA = [
+    {
+        "name": "Infraestrutura",
+        "description": "Verificação de saúde e disponibilidade da API.",
+    },
+    {
+        "name": "Autenticação",
+        "description": (
+            "Registro público de cidadãos, autenticação via OAuth2/JWT "
+            "e consulta do perfil logado."
+        ),
+    },
+    {
+        "name": "Usuários",
+        "description": (
+            "Gestão de contas de usuários e administradores "
+            "(CRUD e inativação lógica)."
+        ),
+    },
+    {
+        "name": "Categorias",
+        "description": "Consulta pública das categorias ativas de ocorrências.",
+    },
+    {
+        "name": "Admin - Categorias (US05)",
+        "description": (
+            "Gestão administrativa do catálogo de categorias "
+            "(criação, edição, inativação e reativação)."
+        ),
+    },
+    {
+        "name": "Ocorrências",
+        "description": (
+            "Registro georreferenciado (US01), consulta com filtros espaciais/"
+            "bounding box (US02) e detalhamento de ocorrências."
+        ),
+    },
+]
+
+DESCRICAO_API = """
+API RESTful georreferenciada para **Registro e Acompanhamento de Ocorrências
+Urbanas** (TP2 — UnB).
+
+### Autenticação
+1. Crie uma conta em **`POST /auth/registrar`** ou use uma credencial existente.
+2. Clique no botão **Authorize** acima e informe seu **e-mail** (no campo
+   `username`) e **senha** para obter o token JWT Bearer.
+"""
 
 
 @asynccontextmanager
@@ -27,8 +75,9 @@ async def ciclo_de_vida(_app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="API - Sistema de Registro e Acompanhamento de Ocorrências Urbanas",
-    description="Backend georreferenciado desenvolvido para TP2 - UnB.",
-    version="0.1.0",
+    description=DESCRICAO_API,
+    version="0.2.0",
+    openapi_tags=TAGS_METADATA,
     lifespan=ciclo_de_vida,
 )
 

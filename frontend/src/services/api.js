@@ -1,3 +1,8 @@
+/**
+ * Camada de comunicação HTTP com a API RESTful do backend FastAPI.
+ * Encapsula chamadas de autenticação, usuários, categorias e ocorrências georreferenciadas.
+ * @module services/api
+ */
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function getToken() {
