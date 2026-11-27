@@ -5,7 +5,7 @@ from typing import Optional
 
 from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import Point
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import Categoria, LogEvento, PerimetroAutorizado
@@ -22,6 +22,15 @@ def _ponto_sql(ponto: Ponto):
     """Expressão PostGIS do ponto, na ordem X = longitude, Y = latitude."""
     x, y = ponto.como_xy()
     return func.ST_SetSRID(func.ST_MakePoint(x, y), SRID)
+
+
+def _padrao_contem(texto: str) -> str:
+    """Padrão ``ILIKE`` que procura o texto literal em qualquer posição.
+
+    ``%``, ``_`` e ``\\`` digitados pelo usuário viram caracteres comuns.
+    """
+    escapado = texto.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escapado}%"
 
 
 def _para_dominio(modelo: OcorrenciaModel) -> Ocorrencia:
@@ -88,6 +97,14 @@ class RepositorioSQL:
             consulta = consulta.where(m.criado_em >= filtro.inicio)
         if filtro.fim is not None:
             consulta = consulta.where(m.criado_em < filtro.fim)
+        if filtro.busca is not None:
+            padrao = _padrao_contem(filtro.busca)
+            consulta = consulta.where(
+                or_(
+                    m.titulo.ilike(padrao, escape="\\"),
+                    m.descricao.ilike(padrao, escape="\\"),
+                )
+            )
         ret = filtro.retangulo
         if ret is not None:
             envelope = func.ST_MakeEnvelope(
