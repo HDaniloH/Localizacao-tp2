@@ -1,1 +1,1 @@
-"""Módulo de Notificações (US03)."""
+"""Módulo de acompanhamento e notificações (US03)."""
