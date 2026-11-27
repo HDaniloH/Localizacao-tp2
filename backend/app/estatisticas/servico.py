@@ -9,17 +9,33 @@ from app.core.exceptions import RecursoNaoEncontrado, RequisicaoInvalida
 from app.estatisticas.schemas import (
     FORA_DAS_REGIOES,
     FUSO,
+    Agrupamento,
     EstatisticaRegiao,
     Evolucao,
     FiltroEstatisticas,
     Granularidade,
+    ItemSazonal,
     PontoEvolucao,
+    PontoReincidencia,
     PorStatus,
+    Reincidencia,
     Resumo,
+    Sazonalidade,
 )
 
 #: Máximo de períodos numa série (ex.: ~2 anos e 9 meses por dia).
 MAX_PONTOS = 1000
+
+_MESES = ["jan", "fev", "mar", "abr", "mai", "jun"]
+_MESES += ["jul", "ago", "set", "out", "nov", "dez"]
+_DIAS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
+
+#: Chaves e rótulos de cada agrupamento sazonal, na ordem do gráfico.
+_ROTULOS: dict[Agrupamento, list[tuple[int, str]]] = {
+    Agrupamento.MES: list(enumerate(_MESES, start=1)),
+    Agrupamento.DIA_SEMANA: list(enumerate(_DIAS, start=1)),
+    Agrupamento.HORA: [(h, f"{h:02d}h") for h in range(24)],
+}
 
 
 class RegiaoNaoEncontrada(RecursoNaoEncontrado):
@@ -32,6 +48,15 @@ class ContagemRegiao:
 
     regiao_id: Optional[int]
     nome: str
+    por_status: PorStatus
+
+
+@dataclass(frozen=True)
+class GrupoReincidencia:
+    """Ocorrências próximas agrupadas (centro médio e contagem por status)."""
+
+    latitude: float
+    longitude: float
     por_status: PorStatus
 
 
@@ -59,6 +84,16 @@ class FonteEstatisticas(Protocol):
         A chave é o primeiro dia do período no fuso local (semana começa na
         segunda-feira).
         """
+
+    def contar_sazonal(
+        self, filtro: FiltroEstatisticas, por: Agrupamento
+    ) -> Mapping[int, PorStatus]:
+        """Contagem por status em cada mês, dia da semana ou hora (local)."""
+
+    def agrupar_reincidencia(
+        self, filtro: FiltroEstatisticas, celula_m: int, minimo: int, limite: int
+    ) -> list[GrupoReincidencia]:
+        """Grupos de ocorrências próximas, do maior para o menor."""
 
 
 def _dia_local(instante: datetime) -> date:
@@ -182,3 +217,49 @@ class ServicoEstatisticas:
                 )
                 atual = _proximo_periodo(atual, granularidade)
         return Evolucao(granularidade=granularidade, pontos=pontos)
+
+    def sazonalidade(
+        self, filtro: FiltroEstatisticas, por: Agrupamento
+    ) -> Sazonalidade:
+        """Distribuição por mês do ano, dia da semana ou hora do dia.
+
+        Todas as chaves aparecem, mesmo sem ocorrências.
+
+        Raises:
+            RegiaoNaoEncontrada: ``regiao_id`` não cadastrada.
+        """
+        self._checar_regiao(filtro)
+        dados = self._fonte.contar_sazonal(filtro, por)
+        itens = [
+            ItemSazonal(
+                chave=chave, rotulo=rotulo, **ItemSazonal.campos(dados.get(chave, {}))
+            )
+            for chave, rotulo in _ROTULOS[por]
+        ]
+        return Sazonalidade(por=por, itens=itens)
+
+    def reincidencia(
+        self, filtro: FiltroEstatisticas, celula_m: int, minimo: int, limite: int
+    ) -> Reincidencia:
+        """Locais com mais ocorrências próximas (para o mapa de calor).
+
+        Args:
+            filtro: Filtros comuns.
+            celula_m: Lado da célula da grade, em metros.
+            minimo: Ocorrências mínimas para um local entrar.
+            limite: Quantos locais devolver.
+
+        Raises:
+            RegiaoNaoEncontrada: ``regiao_id`` não cadastrada.
+        """
+        self._checar_regiao(filtro)
+        grupos = self._fonte.agrupar_reincidencia(filtro, celula_m, minimo, limite)
+        pontos = [
+            PontoReincidencia(
+                latitude=round(g.latitude, 6),
+                longitude=round(g.longitude, 6),
+                **PontoReincidencia.campos(g.por_status),
+            )
+            for g in grupos
+        ]
+        return Reincidencia(celula_m=celula_m, minimo=minimo, pontos=pontos)
