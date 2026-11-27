@@ -1,12 +1,14 @@
-# Guia da API — Autenticação e Painel Admin (US05)
+# Guia da API — Autenticação, Painel Admin (US05) e Relatório Gerencial (US06)
 
-Backend em FastAPI sobre o PostgreSQL/PostGIS do projeto (`app/database.py`,
-`app/models.py`). A documentação interativa (Swagger) fica em `/docs`.
+Backend em FastAPI sobre o PostgreSQL/PostGIS do projeto
+(`backend/app/database.py`, `backend/app/models.py`). A documentação
+interativa (Swagger) fica em `/docs`.
 
 ## Como rodar
 
 ```bash
-docker compose up -d                 # sobe o PostgreSQL + PostGIS
+docker compose up -d                 # na raiz do repositório: PostgreSQL + PostGIS
+cd backend
 python -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -28,8 +30,8 @@ o e-mail (campo *username*) e a senha.
 
 ## Testes e qualidade
 
-Os mesmos passos do CI. Os testes usam o PostGIS do `docker compose`, e cada
-teste recria as tabelas.
+Os mesmos passos do CI, rodados dentro de `backend/`. Os testes usam o PostGIS
+do `docker compose`, e cada teste recria as tabelas.
 
 ```bash
 black --check app tests
@@ -75,6 +77,42 @@ pytest --cov=app --cov-report=term-missing --cov-fail-under=80
 | POST | `/ocorrencias` | logado | Registra ocorrência georreferenciada (US01) |
 | GET | `/ocorrencias` | público | Lista marcadores do mapa com filtros por categoria, status, datas e bounding box (`sul`, `oeste`, `norte`, `leste`) (US02) |
 | GET | `/ocorrencias/{ocorrencia_id}` | público | Consulta os detalhes completos de uma ocorrência (US02) |
+
+### Relatório gerencial — US06
+| Método | Rota | Quem | O que faz |
+|---|---|---|---|
+| GET | `/relatorios/gerencial` | admin | Dados consolidados de uso, em JSON ou CSV |
+
+Parâmetros (todos opcionais):
+
+| Parâmetro | Padrão | Para quê |
+|---|---|---|
+| `inicio` | sem limite | Início do período, inclusivo. Exige fuso: `2026-11-01T00:00:00-03:00` |
+| `fim` | sem limite | Fim do período, **exclusivo**. Exige fuso |
+| `limite_termos` | `10` | Tamanho do ranking de termos (1 a 50) |
+| `formato` | `json` | `csv` devolve um arquivo para download |
+
+O relatório tem três blocos:
+
+- **`usuarios`:** `contas_ativas` e `contas_inativas` (situação de hoje, não
+  dependem do período), `novos_no_periodo` e `com_ocorrencia_no_periodo`
+  (usuários que registraram ao menos uma ocorrência no período).
+- **`termos_mais_pesquisados`:** ranking da tabela `logs_pesquisa`, sem
+  diferenciar maiúsculas nem espaços nas pontas; buscas vazias são ignoradas e
+  empates ficam em ordem alfabética. Fica vazio enquanto nada gravar nessa
+  tabela (o sistema ainda não tem busca por texto).
+- **`chamados_por_regiao`:** ocorrências do período em cada região de
+  `perimetros_autorizados` (borda conta como dentro), com `total`,
+  `registrado`, `em_analise` e `resolvido`. Toda região aparece, mesmo com
+  zero; as ocorrências fora de todas as regiões ficam na linha
+  "Fora das regiões cadastradas", sempre por último. Se regiões se sobrepõem,
+  a ocorrência conta em cada uma.
+
+O CSV é separado por `;` e salvo em UTF-8 com BOM, para o Excel em português
+abrir em colunas e com acentos. Cada linha é um valor, com as colunas
+`secao;item;metrica;valor`. Textos digitados por usuários que começam com
+`=`, `+`, `-` ou `@` recebem um apóstrofo na frente, para a planilha não os
+executar como fórmula.
 
 ## Decisões de projeto
 
@@ -135,3 +173,12 @@ commit que o faz passar (`[GREEN]`).
 **`feature/us05-categorias`** (criada a partir da anterior)
 1. Teste 6 — US05 categorias
 2. `docs`: guia com a US05
+
+**`feature/us06-relatorio`**
+1. `fix`: registro de ocorrência volta a gravar o primeiro evento (notificações)
+2. Teste 7 — filtro da consulta parametrizada
+3. Teste 8 — exportação em CSV
+4. Teste 9 — montagem do relatório (serviço)
+5. Teste 10 — consultas de agregação no PostGIS
+6. Teste 11 — rota `/relatorios/gerencial`
+7. `docs`: guia com a US06
