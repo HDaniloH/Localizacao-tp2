@@ -13,10 +13,16 @@ from app.core.exceptions import ErroDominio
 from app.database import Base, engine
 from app.ocorrencias.rotas import router as ocorrencias_router
 
+from app.notificacoes.rotas import router as notificacoes_router
+
 TAGS_METADATA = [
     {
         "name": "Infraestrutura",
         "description": "Verificação de saúde e disponibilidade da API.",
+    },
+    {
+    "name": "Notificações",
+    "description": "Subscrição em ocorrências e histórico de mudanças de status (US03).",
     },
     {
         "name": "Autenticação",
@@ -107,3 +113,4 @@ app.include_router(usuarios.router)
 app.include_router(categorias.router_admin)
 app.include_router(categorias.router_publico)
 app.include_router(ocorrencias_router)
+app.include_router(notificacoes_router)
