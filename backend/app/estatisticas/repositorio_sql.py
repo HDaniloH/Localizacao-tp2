@@ -3,16 +3,17 @@
 from collections import defaultdict
 from datetime import date
 
-from sqlalchemy import ColumnElement, Date, and_, cast, exists, func, select
+from sqlalchemy import ColumnElement, Date, Integer, and_, cast, exists, func, select
 from sqlalchemy.orm import Session, aliased
 
 from app.estatisticas.schemas import (
     NOME_FUSO,
+    Agrupamento,
     FiltroEstatisticas,
     Granularidade,
     PorStatus,
 )
-from app.estatisticas.servico import ContagemRegiao
+from app.estatisticas.servico import ContagemRegiao, GrupoReincidencia
 from app.models import Ocorrencia, PerimetroAutorizado, StatusOcorrencia
 
 _TRUNCAR = {
@@ -20,6 +21,16 @@ _TRUNCAR = {
     Granularidade.SEMANA: "week",  # o PostgreSQL começa a semana na segunda
     Granularidade.MES: "month",
 }
+
+
+_EXTRAIR = {
+    Agrupamento.MES: "month",
+    Agrupamento.DIA_SEMANA: "isodow",  # 1 = segunda ... 7 = domingo
+    Agrupamento.HORA: "hour",
+}
+
+#: Projeção métrica (metros) usada para montar a grade de reincidência.
+_SRID_METROS = 3857
 
 
 def _hora_local():
@@ -130,3 +141,63 @@ class RepositorioEstatisticasSQL:
         for dia, status, n in self._db.execute(consulta):
             resultado[dia][status] = n
         return dict(resultado)
+
+    def contar_sazonal(
+        self, filtro: FiltroEstatisticas, por: Agrupamento
+    ) -> dict[int, PorStatus]:
+        """Contagem por status por mês, dia da semana ISO ou hora (local)."""
+        chave = cast(func.extract(_EXTRAIR[por], _hora_local()), Integer)
+        consulta = (
+            select(chave, Ocorrencia.status, func.count())
+            .where(*_condicoes(filtro))
+            .group_by(chave, Ocorrencia.status)
+        )
+        resultado: dict[int, dict[StatusOcorrencia, int]] = defaultdict(dict)
+        for k, status, n in self._db.execute(consulta):
+            resultado[k][status] = n
+        return dict(resultado)
+
+    def agrupar_reincidencia(
+        self, filtro: FiltroEstatisticas, celula_m: int, minimo: int, limite: int
+    ) -> list[GrupoReincidencia]:
+        """Agrupa as ocorrências numa grade de células de ``celula_m`` metros.
+
+        Devolve as células com pelo menos ``minimo`` ocorrências, da maior
+        para a menor, com o centro médio dos pontos de cada uma.
+        """
+        oc = Ocorrencia
+        celula = func.ST_SnapToGrid(
+            func.ST_Transform(oc.localizacao, _SRID_METROS), celula_m
+        )
+        centro = func.ST_Centroid(func.ST_Collect(oc.localizacao))
+        latitude, longitude, total = func.ST_Y(centro), func.ST_X(centro), func.count()
+        consulta = (
+            select(
+                latitude,
+                longitude,
+                func.count().filter(oc.status == StatusOcorrencia.REGISTRADO),
+                func.count().filter(oc.status == StatusOcorrencia.EM_ANALISE),
+                func.count().filter(oc.status == StatusOcorrencia.RESOLVIDO),
+            )
+            .where(*_condicoes(filtro))
+            .group_by(celula)
+            .having(total >= minimo)
+            .order_by(total.desc(), latitude, longitude)
+            .limit(limite)
+        )
+        return [
+            GrupoReincidencia(
+                latitude=lat,
+                longitude=lon,
+                por_status={
+                    s: n
+                    for s, n in (
+                        (StatusOcorrencia.REGISTRADO, reg),
+                        (StatusOcorrencia.EM_ANALISE, ana),
+                        (StatusOcorrencia.RESOLVIDO, res),
+                    )
+                    if n
+                },
+            )
+            for lat, lon, reg, ana, res in self._db.execute(consulta)
+        ]
