@@ -75,8 +75,24 @@ pytest --cov=app --cov-report=term-missing --cov-fail-under=80
 | Método | Rota | Quem | O que faz |
 |---|---|---|---|
 | POST | `/ocorrencias` | logado | Registra ocorrência georreferenciada (US01) |
-| GET | `/ocorrencias` | público | Lista marcadores do mapa com filtros por categoria, status, datas e bounding box (`sul`, `oeste`, `norte`, `leste`) (US02) |
+| GET | `/ocorrencias` | público | Lista marcadores do mapa com filtros por categoria, status, datas, bounding box (`sul`, `oeste`, `norte`, `leste`) e texto (`busca`) (US02) |
 | GET | `/ocorrencias/{ocorrencia_id}` | público | Consulta os detalhes completos de uma ocorrência (US02) |
+
+**Busca por texto (`busca`):** procura o texto no título e na descrição, sem
+diferenciar maiúsculas (acentos contam: "iluminação" não acha "iluminacao").
+Espaços nas pontas são ignorados, busca vazia é o mesmo que não buscar, e o
+limite é de 100 caracteres. `%` e `_` são procurados como texto comum.
+
+Cada busca é **gravada automaticamente** em `logs_pesquisa`, a base do ranking
+de termos do relatório gerencial (US06):
+
+- grava o termo, o horário, o retângulo do mapa (`"sul,oeste,norte,leste"`,
+  se informado) e quem buscou;
+- a rota continua pública: com token válido, a busca fica associada ao
+  usuário; sem token, ou com token inválido, ela é gravada como anônima;
+- só a primeira página conta (`offset=0`), para a paginação não registrar a
+  mesma busca várias vezes;
+- consultas sem `busca` não são gravadas.
 
 ### Relatório gerencial — US06
 | Método | Rota | Quem | O que faz |
@@ -99,8 +115,8 @@ O relatório tem três blocos:
   (usuários que registraram ao menos uma ocorrência no período).
 - **`termos_mais_pesquisados`:** ranking da tabela `logs_pesquisa`, sem
   diferenciar maiúsculas nem espaços nas pontas; buscas vazias são ignoradas e
-  empates ficam em ordem alfabética. Fica vazio enquanto nada gravar nessa
-  tabela (o sistema ainda não tem busca por texto).
+  empates ficam em ordem alfabética. A tabela é alimentada pelas buscas do
+  mapa (`GET /ocorrencias?busca=...`).
 - **`chamados_por_regiao`:** ocorrências do período em cada região de
   `perimetros_autorizados` (borda conta como dentro), com `total`,
   `registrado`, `em_analise` e `resolvido`. Toda região aparece, mesmo com
@@ -182,3 +198,9 @@ commit que o faz passar (`[GREEN]`).
 5. Teste 10 — consultas de agregação no PostGIS
 6. Teste 11 — rota `/relatorios/gerencial`
 7. `docs`: guia com a US06
+8. Teste 12 — filtro `busca` no `GET /ocorrencias`
+9. Teste 13 — busca no título e na descrição (PostGIS)
+10. Teste 14 — serviço grava as buscas
+11. Teste 15 — gravação em `logs_pesquisa`
+12. Teste 16 — rota com usuário opcional e integração com o relatório
+13. `docs`: busca e gravação das pesquisas
