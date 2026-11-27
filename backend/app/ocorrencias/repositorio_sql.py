@@ -8,11 +8,11 @@ from shapely.geometry import Point
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import Categoria, LogEvento, PerimetroAutorizado
+from app.models import Categoria, LogEvento, LogPesquisa, PerimetroAutorizado
 from app.models import Ocorrencia as OcorrenciaModel
 from app.ocorrencias.filtros import FiltroOcorrencias
 from app.ocorrencias.geo import Ponto
-from app.ocorrencias.portas import Pagina, SituacaoCategoria
+from app.ocorrencias.portas import Pagina, Pesquisa, SituacaoCategoria
 from app.ocorrencias.schemas import NovaOcorrencia, Ocorrencia
 
 SRID = 4326
@@ -167,3 +167,22 @@ class PerimetrosSQL:
             algum = exists().where(PerimetroAutorizado.id.isnot(None))
             return not self._db.scalar(select(algum))
         return False
+
+
+class RegistroPesquisasSQL:
+    """Grava as buscas do mapa em ``logs_pesquisa``, lida pelo relatório (US06)."""
+
+    def __init__(self, db: Session) -> None:
+        self._db = db
+
+    def registrar(self, pesquisa: Pesquisa) -> None:
+        """Insere a pesquisa e confirma a transação."""
+        self._db.add(
+            LogPesquisa(
+                usuario_id=pesquisa.usuario_id,
+                termo_buscado=pesquisa.termo,
+                regiao_filtrada=pesquisa.regiao,
+                pesquisado_em=pesquisa.momento,
+            )
+        )
+        self._db.commit()
