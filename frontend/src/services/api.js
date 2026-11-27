@@ -196,3 +196,18 @@ export const ocorrenciasService = {
     return request(`/ocorrencias/${id}`);
   },
 };
+
+export const notificacoesService = {
+  inscrever(ocorrenciaId) {
+    return request('/notificacoes/inscrever', {
+      method: 'POST',
+      body: JSON.stringify({
+        ocorrencia_id: Number(ocorrenciaId),
+      }),
+    });
+  },
+
+  listarLogs(ocorrenciaId) {
+    return request(`/notificacoes/ocorrencia/${ocorrenciaId}/logs`);
+  },
+};

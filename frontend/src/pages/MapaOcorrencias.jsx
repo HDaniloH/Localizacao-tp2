@@ -15,12 +15,13 @@ import { ModalDetalheOcorrencia } from '../components/modals/ModalDetalheOcorren
 
 const CENTRO_PADRAO = [-15.7942, -47.8822];
 
-function EventosMapa({ modoSelecao, filtrarPorArea, onSelecionarPonto, onMoverMapa }) {
+function EventosMapa({ filtrarPorArea, onClicarMapa, onMoverMapa }) {
   useMapEvents({
     click(e) {
-      if (modoSelecao) {
-        onSelecionarPonto(e.latlng);
+      if (e.originalEvent?.target?.closest?.('.leaflet-popup, .leaflet-marker-icon')) {
+        return;
       }
+      onClicarMapa(e.latlng);
     },
     moveend(e) {
       if (!filtrarPorArea) return;
@@ -71,6 +72,8 @@ export function MapaOcorrencias() {
     });
     return mapa;
   }, [categorias]);
+
+  
 
   useEffect(() => {
     categoriasService
@@ -136,10 +139,12 @@ export function MapaOcorrencias() {
     setFiltrarPorArea(false);
   };
 
-  const handleSelecionarPontoNoMapa = (latlng) => {
+  const handleClicarMapa = (latlng) => {
     setPontoSelecionado(latlng);
-    setModoSelecao(false);
-    setIsRegistrarOpen(true);
+    if (modoSelecao) {
+      setModoSelecao(false);
+      setIsRegistrarOpen(true);
+    }
   };
 
   const handleRegistrar = async (dados) => {
@@ -343,14 +348,61 @@ export function MapaOcorrencias() {
           />
 
           <EventosMapa
-            modoSelecao={modoSelecao}
             filtrarPorArea={filtrarPorArea}
-            onSelecionarPonto={handleSelecionarPontoNoMapa}
+            onClicarMapa={handleClicarMapa}
             onMoverMapa={setLimitesMapa}
-            />
+          />
+
+          {pontoSelecionado && (
+            <Marker
+              position={[pontoSelecionado.lat, pontoSelecionado.lng]}
+              icon={criarIconeMarcador('SELECAO')}
+            >
+              <Popup>
+                <div
+                  className="text-gray-800 text-xs flex flex-col gap-1.5"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.nativeEvent?.stopImmediatePropagation?.();
+                  }}
+                >
+                  <span className="font-semibold">Local selecionado</span>
+                  <span>
+                    {pontoSelecionado.lat.toFixed(5)}, {pontoSelecionado.lng.toFixed(5)}
+                  </span>
+                  {autenticado && (
+                    <div className="mt-1 flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.nativeEvent?.stopImmediatePropagation?.();
+                          setIsRegistrarOpen(true);
+                        }}
+                        className="py-1 px-2.5 bg-green-600 text-white rounded font-medium hover:bg-green-700 transition"
+                      >
+                        Registrar aqui
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.nativeEvent?.stopImmediatePropagation?.();
+                          setPontoSelecionado(null);
+                        }}
+                        className="py-1 px-2 bg-gray-200 text-gray-700 rounded font-medium hover:bg-gray-300 transition"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          )}
 
           {ocorrencias.map((oc) => {
-            const st = STATUS_CONFIG[oc.status];
+            const st = STATUS_CONFIG[oc.status] || STATUS_CONFIG.REGISTRADO;
             return (
               <Marker
                 key={oc.id}
@@ -358,24 +410,21 @@ export function MapaOcorrencias() {
                 icon={criarIconeMarcador(oc.status)}
               >
                 <Popup>
-                  <div className="text-gray-800 min-w-[200px] flex flex-col gap-1.5">
-                    <div className="font-bold text-sm">{oc.titulo}</div>
-                    <div className="text-xs text-gray-600">
+                  <div className="text-gray-800 min-w-[180px] flex flex-col gap-1.5">
+                    <span className="font-bold text-sm leading-snug">{oc.titulo}</span>
+                    <span className="text-xs text-gray-500">
                       {mapaCategorias[oc.categoria_id] || `Categoria #${oc.categoria_id}`}
-                    </div>
-                    <div className="flex items-center justify-between text-xs mt-1">
-                      <span
-                        className="font-semibold"
-                        style={{ color: st?.corHex || '#3b82f6' }}
-                      >
-                        {st?.label || oc.status}
+                    </span>
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className={`px-2 py-0.5 rounded-full font-semibold ${st.badgeClass}`}>
+                        {st.label}
                       </span>
-                      <span className="text-gray-500">{formatarDataHora(oc.criado_em)}</span>
+                      <span className="text-gray-400">{formatarDataHora(oc.criado_em)}</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setOcorrenciaDetalheId(oc.id)}
-                      className="mt-2 w-full py-1.5 px-3 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition"
+                      className="mt-1 w-full py-1 px-2.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition"
                     >
                       Ver detalhes
                     </button>
@@ -384,6 +433,7 @@ export function MapaOcorrencias() {
               </Marker>
             );
           })}
+
         </MapContainer>
 
         <div className="px-4 py-2.5 border-t dark:border-gray-700 flex flex-wrap items-center gap-4 text-xs text-gray-600 dark:text-gray-300">
@@ -402,7 +452,10 @@ export function MapaOcorrencias() {
 
       <ModalRegistrarOcorrencia
         isOpen={isRegistrarOpen}
-        onClose={() => setIsRegistrarOpen(false)}
+        onClose={() => {
+          setIsRegistrarOpen(false);
+          setPontoSelecionado(null);
+        }}
         categorias={categorias}
         coordenadasIniciais={pontoSelecionado}
         onEscolherNoMapa={() => {

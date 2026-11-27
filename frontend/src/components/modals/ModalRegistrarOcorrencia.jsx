@@ -1,21 +1,36 @@
 import { useState, useEffect } from 'react';
 import { Crosshair, MapPin } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import { ModalBase } from './ModalBase';
+import { criarIconeMarcador } from '../../utils/ocorrencias';
 
-/**
- * Modal de formulário para registro de uma nova ocorrência georreferenciada (US01).
- * Suporta captura automática de coordenadas via API de Geolocalização do navegador
- * ou seleção manual de ponto diretamente no mapa.
- *
- * @param {Object} props - Propriedades do componente.
- * @param {boolean} props.isOpen - Controla a visibilidade do modal.
- * @param {Function} props.onClose - Callback executado ao fechar o modal.
- * @param {Array<Object>} props.categorias - Lista de categorias ativas disponíveis.
- * @param {{lat: number, lng: number}|null} props.coordenadasIniciais - Coordenadas pré-selecionadas no mapa.
- * @param {Function} props.onEscolherNoMapa - Ativa o modo de seleção de ponto no mapa.
- * @param {Function} props.onRegistrar - Submete os dados da nova ocorrência para a API.
- * @returns {JSX.Element|null} Formulário modal de registro de ocorrência.
- */
+const CENTRO_PADRAO = [-15.7942, -47.8822];
+
+function ControladorMiniMapa({ centro, onSelecionar }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [map]);
+
+  useEffect(() => {
+    if (centro) {
+      map.setView(centro, Math.max(map.getZoom(), 15));
+    }
+  }, [map, centro]);
+
+  useMapEvents({
+    click(e) {
+      onSelecionar(e.latlng);
+    },
+  });
+
+  return null;
+}
+
 export function ModalRegistrarOcorrencia({
   isOpen,
   onClose,
@@ -30,13 +45,19 @@ export function ModalRegistrarOcorrencia({
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [erro, setErro] = useState('');
+  const [avisoGps, setAvisoGps] = useState('');
   const [buscandoGps, setBuscandoGps] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
+  const aplicarCoordenadas = (lat, lng) => {
+    setLatitude(String(Number(lat).toFixed(6)));
+    setLongitude(String(Number(lng).toFixed(6)));
+  };
+
   useEffect(() => {
     if (coordenadasIniciais) {
-      setLatitude(String(coordenadasIniciais.lat.toFixed(6)));
-      setLongitude(String(coordenadasIniciais.lng.toFixed(6)));
+      aplicarCoordenadas(coordenadasIniciais.lat, coordenadasIniciais.lng);
+      setAvisoGps('');
     }
   }, [coordenadasIniciais]);
 
@@ -46,25 +67,70 @@ export function ModalRegistrarOcorrencia({
     }
   }, [isOpen, categorias, categoriaId]);
 
+  const buscarLocalizacaoPorRede = async () => {
+    const resp = await fetch('https://ipwho.is/');
+    if (!resp.ok) throw new Error('Falha na consulta de rede');
+    const dados = await resp.json();
+    if (!dados.success || typeof dados.latitude !== 'number' || typeof dados.longitude !== 'number') {
+      throw new Error('Coordenadas indisponíveis');
+    }
+    return { lat: dados.latitude, lng: dados.longitude };
+  };
+
+  const limparFormulario = () => {
+    setTitulo('');
+    setDescricao('');
+    setLatitude('');
+    setLongitude('');
+    setErro('');
+    setAvisoGps('');
+  };
+
+  const handleFechar = () => {
+    limparFormulario();
+    onClose();
+  };
+
   const handleUsarGps = () => {
+    setErro('');
+    setAvisoGps('');
+    setBuscandoGps(true);
+
+    const tentarFallbackRede = async (motivo) => {
+      try {
+        const coords = await buscarLocalizacaoPorRede();
+        aplicarCoordenadas(coords.lat, coords.lng);
+        setAvisoGps(
+          `${motivo} Localização aproximada obtida pela rede — clique no mini-mapa abaixo para ajustar o ponto exato.`
+        );
+      } catch {
+        setErro(
+          `${motivo} Clique diretamente no mini-mapa abaixo ou use "Marcar no mapa" para definir o local.`
+        );
+      } finally {
+        setBuscandoGps(false);
+      }
+    };
+
     if (!navigator.geolocation) {
-      setErro('Geolocalização não é suportada neste navegador.');
+      tentarFallbackRede('Seu navegador não possui suporte a GPS.');
       return;
     }
 
-    setErro('');
-    setBuscandoGps(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLatitude(String(pos.coords.latitude.toFixed(6)));
-        setLongitude(String(pos.coords.longitude.toFixed(6)));
+        aplicarCoordenadas(pos.coords.latitude, pos.coords.longitude);
         setBuscandoGps(false);
       },
-      () => {
-        setErro('Não foi possível obter sua localização. Verifique a permissão de GPS ou clique no mapa.');
-        setBuscandoGps(false);
+      (err) => {
+        const motivos = {
+          1: 'Permissão de localização negada no navegador.',
+          2: 'O sistema não conseguiu obter sinal de GPS.',
+          3: 'Tempo esgotado ao buscar localização pelo navegador.',
+        };
+        tentarFallbackRede(motivos[err.code] || 'Não foi possível obter localização exata.');
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
     );
   };
 
@@ -88,7 +154,7 @@ export function ModalRegistrarOcorrencia({
       return;
     }
     if (Number.isNaN(latNum) || Number.isNaN(lngNum) || latitude === '' || longitude === '') {
-      setErro('Defina a localização usando o GPS ou clicando no mapa.');
+      setErro('Defina a localização clicando no mapa ou usando o GPS.');
       return;
     }
 
@@ -101,10 +167,13 @@ export function ModalRegistrarOcorrencia({
         latitude: latNum,
         longitude: lngNum,
       });
+      limparFormulario();
+      onClose();
       setTitulo('');
       setDescricao('');
       setLatitude('');
       setLongitude('');
+      setAvisoGps('');
       onClose();
     } catch (err) {
       setErro(err.message || 'Erro ao registrar ocorrência.');
@@ -113,9 +182,17 @@ export function ModalRegistrarOcorrencia({
     }
   };
 
+  const coordsValidas =
+    latitude !== '' &&
+    longitude !== '' &&
+    !Number.isNaN(Number(latitude)) &&
+    !Number.isNaN(Number(longitude));
+
+  const centroMiniMapa = coordsValidas ? [Number(latitude), Number(longitude)] : null;
+
   return (
     <ModalBase isOpen={isOpen} onClose={onClose} title="Registrar Ocorrência">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {erro && (
           <div className="p-3 rounded-lg bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 text-sm">
             {erro}
@@ -162,14 +239,14 @@ export function ModalRegistrarOcorrencia({
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="Detalhe o problema e pontos de referência..."
             maxLength={2000}
-            rows={3}
+            rows={2}
             className="w-full p-2.5 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none text-sm resize-none"
             required
           />
         </div>
 
-        <div className="border-t dark:border-gray-700 pt-3">
-          <div className="flex items-center justify-between mb-2">
+        <div className="border-t dark:border-gray-700 pt-3 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
             <label className="text-sm font-medium">Localização</label>
             <div className="flex gap-2">
               <button
@@ -187,10 +264,42 @@ export function ModalRegistrarOcorrencia({
                 className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 transition"
               >
                 <MapPin size={14} />
-                Marcar no mapa
+                Tela cheia
               </button>
             </div>
           </div>
+
+          {avisoGps && (
+            <p className="text-xs p-2 rounded-lg bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+              {avisoGps}
+            </p>
+          )}
+
+          <div className="overflow-hidden rounded-lg border dark:border-gray-600">
+            <MapContainer
+              center={centroMiniMapa || CENTRO_PADRAO}
+              zoom={centroMiniMapa ? 15 : 12}
+              className="w-full h-40 cursor-crosshair z-0"
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <ControladorMiniMapa
+                centro={centroMiniMapa}
+                onSelecionar={(latlng) => {
+                  setAvisoGps('');
+                  aplicarCoordenadas(latlng.lat, latlng.lng);
+                }}
+              />
+              {centroMiniMapa && (
+                <Marker position={centroMiniMapa} icon={criarIconeMarcador('SELECAO')} />
+              )}
+            </MapContainer>
+          </div>
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+            Clique em qualquer ponto do mini-mapa acima para definir ou alterar o local.
+          </span>
 
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -220,7 +329,7 @@ export function ModalRegistrarOcorrencia({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-2">
+        <div className="flex justify-end gap-2 mt-1">
           <button
             type="button"
             onClick={onClose}
